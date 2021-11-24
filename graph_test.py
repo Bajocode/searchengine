@@ -1,13 +1,12 @@
 import unittest
 import graph
-import memory
 import time
 import uuid
 
 
 class GraphTestCase(unittest.TestCase):
     def setUp(self):
-        self.g = memory.GraphInMemory()
+        self.g = graph.GraphInMemory()
 
     def test_upsert_link(self):
         link_original = graph.Link(
