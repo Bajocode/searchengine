@@ -1,6 +1,90 @@
 """ Scratchpad """
 from copy import deepcopy
 import uuid
+import unittest
+from whoosh import fields, query
+from whoosh.filedb.filestore import RamStorage
+from whoosh.query import *
+import uuid
+from datetime import datetime, timezone
+
+
+class Document:
+    ''' Encapsulates all info about a document indexed by FabiSearch '''
+    __slots__ = 'link_id', 'url', 'title', 'content', 'indexed_at', 'pagerank'
+
+    def __init__(self,
+                 link_id: str = str(uuid.UUID(int=0)),
+                 url: str = '',
+                 title: str = '',
+                 content: str = '',
+                 indexed_at: datetime = datetime.min,
+                 pagerank: float = 0.0):
+        self.link_id = link_id
+        self.url = url
+        self.title = title
+        self.content = content
+        self.indexed_at = indexed_at
+        self.pagerank = pagerank
+
+
+class DocumentSwoosh:
+    ''' Encapsulates all info about a document indexed by FabiSearch '''
+    __slots__ = 'title', 'content', 'pagerank'
+
+    def __init__(self,
+                 title: str = '',
+                 content: str = '',
+                 pagerank: float = 0.0):
+        self.title = title
+        self.content = content
+        self.pagerank = pagerank
+
+
+class TestQueries(unittest.TestCase):
+    def test_docs(self):
+        schema = fields.Schema(
+            title=fields.TEXT,
+            content=fields.TEXT,
+            pagerank=fields.NUMERIC)
+        storage = RamStorage()
+        index = storage.create_index(schema)
+
+        writer = index.writer()
+        writer.add_document(
+            title='title',
+            content='content',
+            pagerank=0.0)
+        writer.commit()
+
+        reader = index.reader()
+        query_prefix = query.Every(fieldname='content')
+        with index.searcher() as searcher:
+            a = query_prefix.docs(searcher=searcher)
+
+    def test_simplify(self):
+        s = fields.Schema(k=fields.ID, v=fields.TEXT)
+        st = RamStorage()
+        ix = st.create_index(s)
+
+        w = ix.writer()
+        w.add_document(k='1', v='aardvark apple allan alfa bear bee')
+        w.add_document(k='2', v='brie glue geewhiz goop julia')
+        w.commit()
+
+        r = ix.reader()
+        q1 = query.And([Prefix('v', 'b', boost=2.0), Term('v', 'juliet')])
+        q2 = query.And([
+            Or([Term('v', 'bear', boost=2.0),
+                Term('v', 'bee', boost=2.0),
+                Term('v', 'brie', boost=2.0)]),
+            Term('v', 'juliet')])
+
+        self.assertEqual(q1.simplify(r), q2)
+
+
+if __name__ == '__main__':
+    unittest.main()
 
 Time = int
 

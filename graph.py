@@ -1,14 +1,13 @@
 """Graph."""
 
 import uuid
-import time
 from abc import ABCMeta, abstractmethod
 from typing import Iterator
+from datetime import datetime
 from copy import deepcopy
 from collections import defaultdict
-import common
 
-EdgeList = list[common.UUID]
+EdgeList = list[str]
 
 
 class Link:
@@ -16,9 +15,9 @@ class Link:
     __slots__ = 'link_id', 'url', 'retrieved_at'
 
     def __init__(self,
-                 link_id: common.UUID = str(uuid.UUID(int=0)),
+                 link_id: str = str(uuid.UUID(int=0)),
                  url: str = '',
-                 retrieved_at: common.Timestamp = 0):
+                 retrieved_at: datetime = datetime.min):
         self.link_id = link_id
         self.url = url
         self.retrieved_at = retrieved_at
@@ -40,10 +39,10 @@ class Edge:
     __slots__ = 'edge_id', 'src', 'dst', 'updated_at'
 
     def __init__(self,
-                 edge_id: common.UUID = str(uuid.UUID(int=0)),
-                 src: common.UUID = str(uuid.UUID(int=0)),
-                 dst: common.UUID = str(uuid.UUID(int=0)),
-                 updated_at: common.Timestamp = 0):
+                 edge_id: str = str(uuid.UUID(int=0)),
+                 src: str = str(uuid.UUID(int=0)),
+                 dst: str = str(uuid.UUID(int=0)),
+                 updated_at: datetime = datetime.min):
         self.edge_id = edge_id
         self.src = src
         self.dst = dst
@@ -70,14 +69,14 @@ class GraphInterface(metaclass=ABCMeta):
         """ Creates a new link or updates existing """
 
     @ abstractmethod
-    def find_link(self, link_id: common.UUID) -> Link:
+    def find_link(self, link_id: str) -> Link:
         """ Looks up a link by its id """
 
     @ abstractmethod
     def links_iter(self,
-                   from_id: common.UUID,
-                   to_id: common.UUID,
-                   retrieved_before: common.Timestamp) -> Iterator[Link]:
+                   from_id: str,
+                   to_id: str,
+                   retrieved_before: datetime) -> Iterator[Link]:
         """ Returns iterator for links between from, to before time """
 
     @ abstractmethod
@@ -86,15 +85,15 @@ class GraphInterface(metaclass=ABCMeta):
 
     @ abstractmethod
     def edges_iter(self,
-                   from_id: common.UUID,
-                   to_id: common.UUID,
-                   updated_before: common.Timestamp) -> Iterator[Edge]:
+                   from_id: str,
+                   to_id: str,
+                   updated_before: datetime) -> Iterator[Edge]:
         """ Returns edges for vertice ids between from, to before time """
 
     @ abstractmethod
     def remove_stale_edges(self,
-                           from_id: common.UUID,
-                           deletion_treshold: common.Timestamp):
+                           from_id: str,
+                           deletion_treshold: datetime):
         """ Removes edges for links between from, to before time
 
         iterate the list of edges that originate from the specified source link
@@ -115,16 +114,21 @@ class GraphInMemory(GraphInterface):
         link_edge_map: dict[UUID, EdgeList] efficient get all edges for link_id
     """
 
-    links: dict[common.UUID, Link] = {}
-    edges: dict[common.UUID, Edge] = {}
-    link_url_index: dict[str, Link] = {}
-    link_edge_map: dict[common.UUID, EdgeList] = defaultdict(list)
+    def __init__(self,
+                 links: dict[str, Link] = {},
+                 edges: dict[str, Edge] = {},
+                 link_url_index: dict[str, Link] = {},
+                 link_edge_map: dict[str, EdgeList] = defaultdict(list)):
+        self.links = links
+        self.edges = edges
+        self.link_url_index = link_url_index
+        self.link_edge_map = link_edge_map
 
-    def find_link(self, link_id: common.UUID) -> Link:
+    def find_link(self, link_id: str) -> Link:
         """ Returns deepcopy of link else raises NotFound """
         link = self.links.get(link_id, False)
         if not link:
-            raise common.NotFound('find link:')
+            raise KeyError('find_link(link_id={link_id})')
         return deepcopy(link)
 
     def upsert_link(self, link: Link) -> Link:
@@ -148,9 +152,9 @@ class GraphInMemory(GraphInterface):
         return link_copy
 
     def links_iter(self,
-                   from_id: common.UUID,
-                   to_id: common.UUID,
-                   retrieved_before: common.Timestamp) -> Iterator[Link]:
+                   from_id: str,
+                   to_id: str,
+                   retrieved_before: datetime) -> Iterator[Link]:
         return (link for link in self.links.values()
                 if from_id <= link.link_id < to_id
                 and link.retrieved_at < retrieved_before)
@@ -164,13 +168,13 @@ class GraphInMemory(GraphInterface):
         """
         if edge.src not in self.links or \
                 edge.dst not in self.links:
-            raise common.UnknownEdgeLinks('Upsert edge:')
+            raise KeyError('Edge src or dst not in stored links')
 
         for edge_id in self.link_edge_map.get(edge.src, []):
             edge_stored = self.edges[edge_id]
             if edge_stored.src == edge.src and \
                     edge_stored.dst == edge.dst:
-                edge_stored.updated_at = int(time.time())
+                edge_stored.updated_at = datetime.utcnow()
                 return deepcopy(edge_stored)
 
         # Insert new edge and ensure unique uuid
@@ -178,15 +182,15 @@ class GraphInMemory(GraphInterface):
         edge_copy.edge_id = str(uuid.uuid4())
         while self.edges.get(edge_copy.edge_id, False):
             edge_copy.edge_id = str(uuid.uuid4())
-        edge_copy.updated_at = int(time.time())
+        edge_copy.updated_at = datetime.utcnow()
         self.edges[edge_copy.edge_id] = edge_copy
         self.link_edge_map[edge_copy.src] += [edge_copy.edge_id]
         return edge_copy
 
     def edges_iter(self,
-                   from_id: common.UUID,
-                   to_id: common.UUID,
-                   updated_before: common.Timestamp) -> Iterator[Edge]:
+                   from_id: str,
+                   to_id: str,
+                   updated_before: datetime) -> Iterator[Edge]:
         result = []
         for link_id in self.links:
             if link_id < from_id or link_id >= to_id:
@@ -198,8 +202,8 @@ class GraphInMemory(GraphInterface):
         return iter(result)
 
     def remove_stale_edges(self,
-                           from_id: common.UUID,
-                           deletion_treshold: common.Timestamp):
+                           from_id: str,
+                           deletion_treshold: datetime):
         new_edgelist: EdgeList = []
         for edge_id in self.link_edge_map[from_id]:
             edge_stored = self.edges[edge_id]

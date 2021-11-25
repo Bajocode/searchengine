@@ -1,7 +1,9 @@
+"""GraphTestCase"""
+
 import unittest
 import graph
-import time
 import uuid
+from datetime import datetime, timedelta
 
 
 class GraphTestCase(unittest.TestCase):
@@ -11,8 +13,7 @@ class GraphTestCase(unittest.TestCase):
     def test_upsert_link(self):
         link_original = graph.Link(
             url='https://example.com',
-            retrieved_at=int(time.time())
-        )
+            retrieved_at=datetime.utcnow())
 
         link_inserted = self.g.upsert_link(link_original)
         self.assertIsNotNone(
@@ -24,30 +25,30 @@ class GraphTestCase(unittest.TestCase):
             'expected not to change link outside func scope')
 
         # Update existing link with a newer timestamp and different URL
-        accessed_at = int(time.time())
+        accessed_at = datetime.utcnow()
         link_stored = graph.Link(
+            link_id=link_inserted.link_id,
             url='https://example.com',
             retrieved_at=accessed_at)
-        link_stored.link_id = link_inserted.link_id
         link_updated = self.g.upsert_link(link_stored)
         self.assertEqual(
             link_inserted.link_id,
             link_updated.link_id,
             'link ID changed while upserting')
 
-        link_found = self.g.find_link(link_updated.link_id)
+        link_found = self.g.find_link(link_inserted.link_id)
         self.assertEqual(link_found.retrieved_at, accessed_at)
 
         # Attempt insert new link with existing url, while has later accessed_at
         link_sameurl = graph.Link(
             url=link_stored.url,
-            retrieved_at=int(time.time()))
+            retrieved_at=datetime.utcnow())
         link_sameurl_updated = self.g.upsert_link(link_sameurl)
         self.assertEqual(link_sameurl_updated.link_id, link_updated.link_id)
 
         link_found = self.g.find_link(link_stored.link_id)
-        self.assertEqual(link_found.retrieved_at,
-                         accessed_at,
+        self.assertEqual(link_found.retrieved_at.second,
+                         accessed_at.second,
                          'last accessed stamp was overwritten with older value')
 
         #  Create new link and attempt update url to same an existing link
@@ -61,7 +62,7 @@ class GraphTestCase(unittest.TestCase):
     def test_find_link(self):
         link_original = graph.Link(
             url='https://example.com',
-            retrieved_at=int(time.time())
+            retrieved_at=datetime.utcnow()
         )
 
         link_inserted = self.g.upsert_link(link_original)
@@ -105,14 +106,16 @@ class GraphTestCase(unittest.TestCase):
 
     def test_links_iter(self):
         for i in range(50):
-            link = graph.Link(url=str(i))
+            link = graph.Link(
+                url=str(i),
+                retrieved_at=self._second_before())
             self.assertIsNotNone(self.g.upsert_link(link))
-        from_id, to_id, second_later = '0', '1', int(time.time()) + 1
+        from_id, to_id, timenow = '0', '1', datetime.utcnow()
         linksiter = self.g.links_iter(
-            from_id=from_id, to_id=to_id, retrieved_before=second_later)
+            from_id=from_id, to_id=to_id, retrieved_before=timenow)
         filtered = [link for link in self.g.links.values()
                     if from_id <= link.link_id < to_id
-                    and link.retrieved_at < second_later]
+                    and link.retrieved_at < timenow]
 
         self.assertEqual(
             sorted(list(linksiter), key=lambda link: link.url),
@@ -122,19 +125,20 @@ class GraphTestCase(unittest.TestCase):
         for i in range(50):
             src = self.g.upsert_link(link=graph.Link(url=str(-i)))
             dst = self.g.upsert_link(link=graph.Link(url=str(i)))
-            edge = graph.Edge(src=src.link_id, dst=dst.link_id)
+            edge = graph.Edge(src=src.link_id, dst=dst.link_id,
+                              updated_at=self._second_before())
             self.g.upsert_edge(edge=edge)
 
-        from_id, to_id, second_later = '0', '1', int(time.time()) + 1
+        from_id, to_id = '0', '1'
         edgesiter = self.g.edges_iter(
-            from_id=from_id, to_id=to_id, updated_before=second_later)
+            from_id=from_id, to_id=to_id, updated_before=datetime.utcnow())
         filtered = []
         for link_id in self.g.links:
             if link_id < from_id or link_id >= to_id:
                 continue
             for edge_id in self.g.link_edge_map[link_id]:
                 edge = self.g.edges.get(edge_id, False)
-                if edge and edge.updated_at < second_later:
+                if edge and edge.updated_at < datetime.utcnow():
                     filtered.append(edge)
 
         self.assertEqual(
@@ -147,15 +151,18 @@ class GraphTestCase(unittest.TestCase):
             src = self.g.upsert_link(link=graph.Link(url=str(-i)))
             src_ids.append(src.link_id)
             dst = self.g.upsert_link(link=graph.Link(url=str(i)))
-            edge = graph.Edge(src=src.link_id, dst=dst.link_id)
+            edge = graph.Edge(src=src.link_id, dst=dst.link_id,
+                              updated_at=self._second_before())
             self.g.upsert_edge(edge=edge)
 
         from_id = src_ids[1]
         edge_ids_before = list(self.g.link_edge_map[from_id])
-        second_later = int(time.time()) + 1
         self.g.remove_stale_edges(
-            from_id=from_id, deletion_treshold=second_later)
+            from_id=from_id, deletion_treshold=datetime.utcnow())
         self.assertNotEqual(edge_ids_before, self.g.link_edge_map[from_id])
+
+    def _second_before(self, dt: datetime = datetime.utcnow()):
+        return dt - timedelta(seconds=1)
 
 
 if __name__ == '__main__':

@@ -5,6 +5,7 @@ from enum import Enum
 import common
 from datetime import datetime
 from copy import deepcopy
+from collections import defaultdict
 from typing import Iterator
 import uuid
 
@@ -19,7 +20,10 @@ class Query:
     """ Params to use when searching index """
     __slots__ = 'query_type', 'expression', 'offset'
 
-    def __init__(self, query_type: QueryType, expression: str, offset: int):
+    def __init__(self,
+                 query_type: QueryType = 0,
+                 expression: str = '',
+                 offset: int = 0):
         self.query_type = query_type
         self.expression = expression
         self.offset = offset
@@ -56,15 +60,15 @@ class Document:
 class IndexerInterface(metaclass=ABCMeta):
     """ Graph implemented by objects that can mutate or query a link graph """
     @ abstractmethod
-    def upsert_doc_index(self, doc: Document) -> Document:
+    def upsert_document_index(self, document: Document) -> Document:
         """ Indexes a new document or updates existing """
 
     @abstractmethod
-    def find_doc_by_link_id(self, link_id: common.UUID) -> Document:
+    def find_document_by_link_id(self, link_id: common.UUID) -> Document:
         """ Find document by related link object's link_id """
 
     @abstractmethod
-    def search(self, query: Query) -> Iterator[Document]:
+    def search_documents(self, query: Query) -> Iterator[Document]:
         """ Search index by query and return iterator of docs """
 
     @abstractmethod
@@ -77,19 +81,67 @@ class IndexerInterface(metaclass=ABCMeta):
 class IndexerInMemory(IndexerInterface):
     """ Implements Indexer behavior in memory """
 
-    def upsert_doc_index(self, doc: Document) -> Document:
+    def __init__(self):
+        self.documents: dict[str, Document] = {}
+        self.index: dict[str, set[str]] = defaultdict(set)
+
+    def upsert_document_index(self, document: Document) -> Document:
         """ Indexes a new document or updates existing """
-        pass
+        if not document.link_id:
+            raise ValueError(f'link_id param missing for doc \n{document}')
+        document_copy = deepcopy(document)
+        document_copy.indexed_at = datetime.utcnow()
+        key = document_copy.link_id
+        if key in self.documents:
+            document_copy.pagerank = self.documents[key].pagerank
+            self._delete_from_index(document)
+        self._update_index(document_copy)
+        self.documents[key] = document_copy
+        return document_copy
 
-    def find_doc_by_link_id(self, link_id: common.UUID) -> Document:
+    def find_document_by_link_id(self, link_id: common.UUID) -> Document:
         """ Find document by related link object's link_id """
-        pass
+        if link_id in self.documents:
+            return deepcopy(self.documents[link_id])
+        raise KeyError(f'link_id {link_id} missing indexer.docs')
 
-    def search(self, query: Query) -> Iterator[Document]:
-        """ Search index by query and return iterator of docs """
-        pass
+    def search_documents(self, query: Query) -> Iterator[Document]:
+        """ Search index by query and return iterator of docs
+
+            TODO
+            - Incorporate Swoosh or Lucene or Lupyne
+            - Incorporate Query objects and pagination
+            - Allow both AND and OR searches
+            - Sort by rank
+        """
+        result = [self.index.get(token, set())
+                  for token in self._tokenize(query.expression)]
+        documents = [self.documents[link_id] for link_id in set.union(*result)]
+        return iter(documents)
 
     def update_pagerank_score(self,
                               link_id: common.UUID,
                               pagerank_score: float):
-        pass
+        document = self.documents.setdefault(
+            link_id, Document(link_id=link_id))
+        document.pagerank = pagerank_score
+        self._reindex(document)
+
+    def _update_index(self, document: Document):
+        for token in self._tokenize_document(document):
+            self.index[token].add(document.link_id)
+
+    def _delete_from_index(self, document: Document):
+        for _, link_id_set in self.index.items():
+            if document.link_id in link_id_set:
+                link_id_set.remove(document.link_id)
+
+    def _reindex(self, document: Document):
+        self._delete_from_index(document)
+        self._update_index(document)
+
+    def _tokenize_document(self, document: Document) -> list[str]:
+        return self._tokenize(document.title) + self._tokenize(document.content)
+
+    def _tokenize(self, text: str) -> list[str]:
+        return [token.lower() for token in text.split()]
