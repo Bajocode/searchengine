@@ -2,8 +2,11 @@
 
 ## Focus
 - finish the entire system as soon as possible, refactor later
-- don't focus too much on perfecting OOP etc with limited python
-- project tech and design is too interesting to get stuck at boilerplate stuff
+- skipped
+    - sql db
+    - elastic db
+    - in mem indexer third party
+    - synchronization / multi threaded
 - branching out
     - indexer with trie prefix search
     - trie autocomplete function for frontend
