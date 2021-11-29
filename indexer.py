@@ -33,7 +33,7 @@ class Document:
     __slots__ = 'link_id', 'url', 'title', 'content', 'indexed_at', 'pagerank'
 
     def __init__(self,
-                 link_id: uuid.UUID = str(uuid.UUID(int=0)),
+                 link_id: str = str(uuid.UUID(int=0)),
                  url: str = '',
                  title: str = '',
                  content: str = '',
@@ -63,7 +63,7 @@ class IndexerInterface(metaclass=ABCMeta):
         """ Indexes a new document or updates existing """
 
     @abstractmethod
-    def find_document_by_link_id(self, link_id: uuid.UUID) -> Document:
+    def find_document_by_link_id(self, link_id: str) -> Document:
         """ Find document by related link object's link_id """
 
     @abstractmethod
@@ -72,7 +72,7 @@ class IndexerInterface(metaclass=ABCMeta):
 
     @abstractmethod
     def update_pagerank_score(self,
-                              link_id: uuid.UUID,
+                              link_id: str,
                               pagerank_score: float):
         """ Update doc score for link_id, if not exists, placeholder score """
 
@@ -98,7 +98,7 @@ class IndexerInMemory(IndexerInterface):
         self.documents[key] = document_copy
         return document_copy
 
-    def find_document_by_link_id(self, link_id: uuid.UUID) -> Document:
+    def find_document_by_link_id(self, link_id: str) -> Document:
         """ Find document by related link object's link_id """
         if link_id in self.documents:
             return deepcopy(self.documents[link_id])
@@ -119,7 +119,7 @@ class IndexerInMemory(IndexerInterface):
         return iter(documents)
 
     def update_pagerank_score(self,
-                              link_id: uuid.UUID,
+                              link_id: str,
                               pagerank_score: float):
         document = self.documents.setdefault(
             link_id, Document(link_id=link_id))
