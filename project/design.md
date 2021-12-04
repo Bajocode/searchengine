@@ -1,6 +1,7 @@
 # Notes
 
 ## Focus
+- focus on the crawler itself, not the abstractions and multiprocessing
 - finish the entire system as soon as possible, refactor later
 - skipped
     - sql db
@@ -17,6 +18,9 @@
 ![](./components.jpg)
 
 ### Crawler
+
+![image-20211201204829923](/Users/fabijanbajo/Library/Application Support/typora-user-images/image-20211201204829923.png)
+
 - operates on a set of links seeded or discovered while crawling previous set 
 - package encapsulating a pipeline: LinkFilter, LinkFetcher, ContentExtractor, LinkExtractor
 
