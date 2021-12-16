@@ -10,11 +10,11 @@ class IndexerTestCase(unittest.TestCase):
     """Indexing testcase"""
 
     def setUp(self):
-        self.indexer = indexer.IndexerInMemory()
+        self.indexer: indexer.IndexerInMemory = indexer.IndexerInMemory()
 
     def test_upsert_doc_index(self):
         doc_original = indexer.Document(
-            link_id=str(uuid.uuid4()),
+            link_id=uuid.uuid4(),
             url='http://example.com',
             title='Illustrious examples',
             content='Lorem ipsum dolor',
@@ -22,7 +22,7 @@ class IndexerTestCase(unittest.TestCase):
             pagerank=5.0
         )
         doc_original_2 = indexer.Document(
-            link_id=str(uuid.uuid4()),
+            link_id=uuid.uuid4(),
             url='http://example.com',
             title='examples for patatje oorlog',
             content='dikke paark op je ipsum ouwe dolor',
@@ -54,7 +54,7 @@ class IndexerTestCase(unittest.TestCase):
 
     def test_find_document_by_link_id(self):
         doc_original = indexer.Document(
-            link_id=str(uuid.uuid4()),
+            link_id=uuid.uuid4(),
             url='http://example.com',
             title='Illustrious examples',
             content='Lorem ipsum dolor',

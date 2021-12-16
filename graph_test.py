@@ -56,7 +56,7 @@ class GraphTestCase(unittest.TestCase):
         link_dup_inserted = self.g.upsert_link(link_dup)
         self.assertNotEqual(
             link_dup_inserted.link_id,
-            str(uuid.UUID(int=0)),
+            uuid.UUID(int=0),
             'expected a linkID to be assigned to the new link')
 
     def test_find_link(self):
@@ -66,7 +66,7 @@ class GraphTestCase(unittest.TestCase):
         )
 
         link_inserted = self.g.upsert_link(link_original)
-        self.assertNotEqual(link_inserted.link_id, str(uuid.UUID(int=0)))
+        self.assertNotEqual(link_inserted.link_id, uuid.UUID(int=0))
 
         # Lookup link by valid id
         link_found = self.g.find_link(link_inserted.link_id)
@@ -110,7 +110,8 @@ class GraphTestCase(unittest.TestCase):
                 url=str(i),
                 retrieved_at=self._second_before())
             self.assertIsNotNone(self.g.upsert_link(link))
-        from_id, to_id, timenow = '0', '1', datetime.utcnow()
+        from_id, to_id, timenow = uuid.UUID(
+            int=0), uuid.UUID(int=1), datetime.utcnow()
         linksiter = self.g.links_iter(
             from_id=from_id, to_id=to_id, retrieved_before=timenow)
         filtered = [link for link in self.g.links.values()
@@ -129,7 +130,7 @@ class GraphTestCase(unittest.TestCase):
                               updated_at=self._second_before())
             self.g.upsert_edge(edge=edge)
 
-        from_id, to_id = '0', '1'
+        from_id, to_id = uuid.UUID(int=0), uuid.UUID(int=1)
         edgesiter = self.g.edges_iter(
             from_id=from_id, to_id=to_id, updated_before=datetime.utcnow())
         filtered = []

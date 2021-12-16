@@ -1,17 +1,7 @@
 # Notes
 
-## Focus
-- focus on the crawler itself, not the abstractions and multiprocessing
-- finish the entire system as soon as possible, refactor later
-- skipped
-    - sql db
-    - elastic db
-    - in mem indexer third party
-    - synchronization / multi threaded
-- branching out
-    - indexer with trie prefix search
-    - trie autocomplete function for frontend
-    - write article threaded python search engine 
+## TODO
+- Refactor UUID to use the class for correct comparirison by 128 bit int
 
 ## Design
 
