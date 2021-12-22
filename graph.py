@@ -62,7 +62,7 @@ class Edge:
             updated_at:\t{self.updated_at}\n'
 
 
-class GraphInterface(metaclass=ABCMeta):
+class Graph(metaclass=ABCMeta):
     """ Graph implemented by objects that can mutate or query a link graph """
     @ abstractmethod
     def upsert_link(self, link: Link) -> Link:
@@ -104,7 +104,7 @@ class GraphInterface(metaclass=ABCMeta):
         """
 
 
-class GraphInMemory(GraphInterface):
+class GraphInMemory(Graph):
     """ Implements graph interface (TODO: synchronize)
 
     Attributes:
