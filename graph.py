@@ -155,7 +155,7 @@ class GraphInMemory(Graph):
                    from_id: uuid.UUID,
                    to_id: uuid.UUID,
                    retrieved_before: datetime) -> Iterator[Link]:
-        return (link for link in self.links.values()
+        return (link for link in deepcopy(self.links).values()
                 if from_id <= link.link_id < to_id
                 and link.retrieved_at < retrieved_before)
 
