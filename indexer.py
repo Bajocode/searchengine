@@ -56,7 +56,7 @@ class Document:
             pagerank: \t{self.pagerank}'''
 
 
-class IndexerInterface(metaclass=ABCMeta):
+class Indexer(metaclass=ABCMeta):
     """ Graph implemented by objects that can mutate or query a link graph """
     @ abstractmethod
     def upsert_document_index(self, document: Document) -> Document:
@@ -77,7 +77,7 @@ class IndexerInterface(metaclass=ABCMeta):
         """ Update doc score for link_id, if not exists, placeholder score """
 
 
-class IndexerInMemory(IndexerInterface):
+class IndexerInMemory(Indexer):
     """ Implements Indexer behavior in memory """
 
     def __init__(self):

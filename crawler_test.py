@@ -27,26 +27,27 @@ class LinkFetcherTestCase(unittest.TestCase):
         self.assertIsNone(payload_out)
 
 
-# class GraphUpdaterTestCase(unittest.TestCase):
-#     """GraphUpdaterTestCase """
+class GraphUpdaterTestCase(unittest.TestCase):
+    """GraphUpdaterTestCase """
 
-#     def setUp(self):
-#         self.sut = crawler.GraphUpdater(graph=graph.GraphInMemory())
+    def setUp(self):
+        self.sut = crawler.GraphUpdater(graph=graph.GraphInMemory())
 
-#     def test_fetch_correctlink_successfully(self):
-#         payload = crawler.CrawlerPayload(
-#             link_id=uuid.uuid4(),
-#             url='http://example.com',
-#         )
-#         payload.nofollow_urls = ['http://forum.com']
-#         payload.urls = ['http://example.com/foo', 'http://example.com/bar']
-#         payload = self.sut.process(payload=payload)
+    def test_fetch_correctlink_successfully(self):
+        payload = crawler.CrawlerPayload(
+            link_id=uuid.uuid4(),
+            url='http://example.com',
+        )
+        payload.nofollow_urls = ['http://forum.com']
+        payload.urls = ['http://example.com/foo', 'http://example.com/bar']
+        payload = self.sut.process(payload=payload)
 
 
 class CrawlerTestCase(unittest.TestCase):
     def setUp(self):
         self.graph = graph.GraphInMemory()
-        self.sut = crawler.Crawler(graph=self.graph)
+        self.indexer = indexer.IndexerInMemory()
+        self.sut = crawler.Crawler(graph=self.graph, indexer=self.indexer)
 
     def test_crawls_successfully(self):
         link_local = graph.Link(url='https://en.wikipedia.org')
@@ -56,8 +57,6 @@ class CrawlerTestCase(unittest.TestCase):
             uuid.UUID('{FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF}'),
             retrieved_before=datetime.utcnow())
         outputs = self.sut.run(links_iter)
-
-        print(self.graph.edges)
 
 
 if __name__ == '__main__':

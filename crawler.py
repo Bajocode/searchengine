@@ -6,9 +6,11 @@ from datetime import datetime
 import re
 from copy import deepcopy
 from typing import Iterator, Callable
-import graph
 import requests
 from urllib.parse import urlparse
+from bs4 import BeautifulSoup
+import graph
+import indexer as idx
 
 
 class CrawlerPayload():
@@ -71,6 +73,7 @@ regex_nonhtml = re.compile('(?i)\.(?:jpg|jpeg|png|gif|ico|css|js)$')
 regex_basehref = re.compile('(?i)<base.*?href\s*?=\s*?"(.*?)\s*?"')
 regex_allhrefs = re.compile('(?i)<a.*?href\s*?=\s*?"\s*?(.*?)\s*?".*?>')
 regex_nofollowhrefs = re.compile('(?i)rel\s*?=\s*?"?nofollow"?')
+regex_title = re.compile('(?i)<title.*?>(.*?)</title>')
 
 
 class LinkExtractor(Processor):
@@ -82,6 +85,28 @@ class LinkExtractor(Processor):
     def _is_absolute(self, urlstring: str) -> bool:
         parsed = urlparse(urlstring)
         return parsed.scheme and parsed.netloc
+
+
+class ContentExtractor(Processor):
+    def process(self, payload: CrawlerPayload) -> CrawlerPayload:
+        parser: BeautifulSoup = BeautifulSoup(
+            markup=payload.raw_content, features='html.parser')
+        # Extract title
+        title = parser.find_all('title')
+        if title:
+            payload.title = title[0].get_text()
+
+        # Remove all script and style elements
+        for script in parser(['script', 'style']):
+            script.extract()
+        text = parser.get_text()
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip()
+                  for line in lines for phrase in line.split('  '))
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+        payload.text_content = text
+
+        return payload
 
 
 class GraphUpdater(Processor):
@@ -129,12 +154,30 @@ class GraphUpdater(Processor):
         return edges
 
 
+class TextIndexer(Processor):
+    def __init__(self, indexer: idx.Indexer):
+        self.indexer = indexer
+
+    def process(self, payload: CrawlerPayload) -> CrawlerPayload:
+        document = idx.Document(
+            link_id=payload.link_id,
+            url=payload.url,
+            title=payload.title,
+            content=payload.text_content,
+            indexed_at=datetime.utcnow()
+        )
+        self.indexer.upsert_document_index(document=document)
+        return payload
+
+
 class Crawler():
-    def __init__(self, graph: graph.Graph):
+    def __init__(self, graph: graph.Graph, indexer: idx.Indexer):
         self.stages = [
             LinkFetcher(),
             LinkExtractor(),
-            GraphUpdater(graph=graph)
+            ContentExtractor(),
+            GraphUpdater(graph=graph),
+            TextIndexer(indexer=indexer)
         ]
 
     def run(self, links_iter: Iterator[graph.Link]):
