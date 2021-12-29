@@ -24,7 +24,7 @@ jobs:
 - name: bullshit
   plan:
   - get: repo
-    # trigger: true
+    trigger: true
   - task: bullshit
     config:
       platform: linux
